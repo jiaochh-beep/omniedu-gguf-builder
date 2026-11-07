@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-QUANT_TYPE="${1:-Q4_K_S}"
+QUANT_TYPE="${1:-Q3_K_M}"
 REPO="${2:-jiaochh-beep/omniedu-gguf-builder}"
 WORKFLOW="build-omniedu-4b.yml"
 
