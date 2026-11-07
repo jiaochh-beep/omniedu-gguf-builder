@@ -63,7 +63,8 @@ jobs:
       - name: Build llama-quantize
         run: |
           cd llama.cpp
-          make -j$(nproc) llama-quantize
+          cmake -B build -DLLAMA_BUILD_TOOLS=ON
+          cmake --build build --config Release -j$(nproc) --target llama-quantize
 
       - name: Quantize to ${{ github.event.inputs.quant_type || 'Q4_K_M' }}
         run: |
