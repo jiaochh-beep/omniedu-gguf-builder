@@ -5,8 +5,8 @@
 
 set -euo pipefail
 
-QUANT_TYPE="${1:-Q4_K_M}"
-REPO="${2:-chenyuanyuan/omniedu-gguf-builder}"
+QUANT_TYPE="${1:-Q4_K_S}"
+REPO="${2:-jiaochh-beep/omniedu-gguf-builder}"
 WORKFLOW="build-omniedu-4b.yml"
 
 echo "🚀 触发 GitHub Actions 构建: $REPO -> $WORKFLOW (quant: $QUANT_TYPE)"
