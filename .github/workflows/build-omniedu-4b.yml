@@ -37,6 +37,7 @@ jobs:
         run: |
           cd llama.cpp
           pip install -r requirements/requirements-convert_hf_to_gguf.txt huggingface_hub -q
+          pip install git+https://github.com/huggingface/transformers.git --no-deps -q
 
       - name: Download OmniEdu-4B
         run: |
