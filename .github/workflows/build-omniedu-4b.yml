@@ -42,10 +42,15 @@ jobs:
 
       - name: Download OmniEdu-4B
         run: |
-          huggingface-cli download lhpku20010120/Omni-Edu-4B \
-            --local-dir /tmp/Omni-Edu-4B \
-            --local-dir-use-symlinks False \
-            --revision ${{ github.event.inputs.model_version || 'main' }}
+          python -c "
+          from huggingface_hub import snapshot_download
+          snapshot_download(
+              repo_id='lhpku20010120/Omni-Edu-4B',
+              local_dir='/tmp/Omni-Edu-4B',
+              local_dir_use_symlinks=False,
+              revision='${{ github.event.inputs.model_version || 'main' }}'
+          )
+          "
 
       - name: Convert to GGUF (FP16)
         run: |
