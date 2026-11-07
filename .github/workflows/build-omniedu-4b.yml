@@ -1,0 +1,100 @@
+name: Build OmniEdu-4B GGUF
+
+on:
+  workflow_dispatch:
+    inputs:
+      model_version:
+        description: 'Model version (branch/tag/commit)'
+        required: false
+        default: 'main'
+      quant_type:
+        description: 'Quantization type'
+        required: false
+        default: 'Q4_K_M'
+        type: choice
+        options: [Q4_K_M, Q4_K_S, Q5_K_M, Q5_K_S, Q6_K, Q8_0, F16]
+
+  schedule:
+    - cron: '0 2 * * 0'  # 每周日凌晨 2 点自动构建
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build GGUF (${{ github.run_id }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout llama.cpp
+        uses: actions/checkout@v4
+        with:
+          repository: ggml-org/llama.cpp
+          path: llama.cpp
+          submodules: recursive
+
+      - name: Install Python deps
+        run: |
+          cd llama.cpp
+          pip install -r requirements/requirements-convert_hf_to_gguf.txt huggingface_hub -q
+
+      - name: Download OmniEdu-4B
+        run: |
+          huggingface-cli download lhpku20010120/Omni-Edu-4B \
+            --local-dir /tmp/Omni-Edu-4B \
+            --local-dir-use-symlinks False \
+            --revision ${{ github.event.inputs.model_version || 'main' }}
+
+      - name: Convert to GGUF (FP16)
+        run: |
+          cd llama.cpp
+          python convert_hf_to_gguf.py /tmp/Omni-Edu-4B \
+            --outfile /tmp/Omni-Edu-4B-F16.gguf \
+            --outtype f16
+
+      - name: Build llama-quantize
+        run: |
+          cd llama.cpp
+          make -j$(nproc) llama-quantize
+
+      - name: Quantize to ${{ github.event.inputs.quant_type || 'Q4_K_M' }}
+        run: |
+          cd llama.cpp
+          ./build/bin/llama-quantize \
+            /tmp/Omni-Edu-4B-F16.gguf \
+            /tmp/Omni-Edu-4B-${{ github.event.inputs.quant_type || 'Q4_K_M' }}.gguf \
+            ${{ github.event.inputs.quant_type || 'Q4_K_M' }}
+
+      - name: Verify model
+        run: |
+          cd llama.cpp
+          ./build/bin/llama-cli -m /tmp/Omni-Edu-4B-${{ github.event.inputs.quant_type || 'Q4_K_M' }}.gguf \
+            -p "解方程 x^2-5x+6=0" -n 128 -c 2048 --temp 0.7 2>&1 | head -30
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+        with:
+          tag_name: omniedu-4b-${{ github.event.inputs.quant_type || 'Q4_K_M' }}-${{ github.run_number }}
+          name: OmniEdu-4B-${{ github.event.inputs.quant_type || 'Q4_K_M' }} #${{ github.run_number }}
+          draft: false
+          prerelease: false
+          files: |
+            /tmp/Omni-Edu-4B-${{ github.event.inputs.quant_type || 'Q4_K_M' }}.gguf
+          body: |
+            ## OmniEdu-4B GGUF Release
+
+            - **Base model**: lhpku20010120/Omni-Edu-4B
+            - **Quantization**: ${{ github.event.inputs.quant_type || 'Q4_K_M' }}
+            - **llama.cpp commit**: ${{ github.sha }}
+            - **Build date**: ${{ github.run_started_at }}
+            - **Size**: ~2.8 GB (Q4_K_M)
+
+            ### Usage with llama.cpp
+            ```bash
+            llama-server -m Omni-Edu-4B-${{ github.event.inputs.quant_type || 'Q4_K_M' }}.gguf \
+              --host 0.0.0.0 --port 8080 -c 4096 -ngl 0
+            ```
+
+            ### Use with Shuntong Study Station
+            Set `base_url = "http://localhost:8080/v1"` in config.
